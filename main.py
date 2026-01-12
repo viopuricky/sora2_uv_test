@@ -16,21 +16,7 @@ def main():
         print("Error: OPENAI_API_KEY not found in environment variables")
         return
 
-
-    # Assign job to OpenAI
-    client = OpenAI(api_key=api_key)
-
-    response = client.responses.create(             # test with text response only
-        model="gpt-5-nano",
-        input="tell me a joke about computers",
-        store=True,
-    )
-
-    #Get response from OpenAI
-    output_text = response.output_text
-    print("Response:", output_text)
-
-    # Upload OpenAI response to S3
+    # Get AWS credentials
     aws_access_key = os.getenv('AWS_ACCESS_KEY_ID')
     aws_secret_key = os.getenv('AWS_SECRET_ACCESS_KEY')
     aws_region = os.getenv('AWS_REGION')
@@ -47,20 +33,38 @@ def main():
         region_name=aws_region
     )
 
-    # Create a unique filename with timestamp
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"openai_response_{timestamp}.txt"
 
-    try:
-        s3_client.put_object(
-            Bucket=s3_bucket,
-            Key=filename,
-            Body=output_text,
-            ContentType='text/plain'
+    client = OpenAI(api_key=api_key)
+    num_of_task = 3
+
+    # Assign tasks to the OpenAI and upload results to S3
+    for i in range(1, 1 + num_of_task):
+        print(f"\nGenerating joke {i}...")
+        
+        response = client.responses.create(             # test with text response only
+            model="gpt-5-nano",
+            input="tell me a joke about computers",
+            store=True,
         )
-        print(f"Successfully uploaded response to S3: s3://{s3_bucket}/{filename}")
-    except Exception as e:
-        print(f"Error uploading to S3: {e}")
+
+        # Get response from OpenAI
+        output_text = response.output_text
+        print(f"Joke {i}: {output_text}")
+
+        # Create a unique filename with timestamp and joke number
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"openai_joke_{i}_{timestamp}.txt"
+
+        try:
+            s3_client.put_object(
+                Bucket=s3_bucket,
+                Key=filename,
+                Body=output_text,
+                ContentType='text/plain'
+            )
+            print(f"Successfully uploaded joke {i} to S3: s3://{s3_bucket}/{filename}")
+        except Exception as e:
+            print(f"Error uploading joke {i} to S3: {e}")
 
 if __name__ == "__main__":
     main()
